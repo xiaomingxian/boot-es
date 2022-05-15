@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.support.WriteRequest;
+import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentType;
@@ -30,11 +32,12 @@ public class EsDataOperateTest {
 
     private final RequestOptions options = RequestOptions.DEFAULT;
 
+    private final  static    String indexName = "test_index";;
+
     @Test
     public void insertData() {
 
         try {
-            String indexName = "test_index";
             Map dataMap = new HashMap<String, Object>();
             dataMap.put("name","Tom");
             dataMap.put("age","18");
@@ -65,7 +68,6 @@ public class EsDataOperateTest {
 
             }
 
-            String indexName = "test_index";
             BulkRequest request = new BulkRequest();
             for (Map<String,Object> dataMap:userIndexList){
                 request.add(new IndexRequest(indexName,"doc").id(dataMap.remove("id").toString())
@@ -78,11 +80,33 @@ public class EsDataOperateTest {
         }
     }
 
+    /**
+     * 更新数据，可以直接修改索引结构
+     */
+    @Test
+    public void updateData(){
+
+        try {
+            HashMap<String, Object> dataMap = new HashMap<>();
+            dataMap.put("id","{name=Tom, remark=测试数据, age=18}");
+            dataMap.put("filed1","tom-hanks");
+            dataMap.put("filed2","tom-hanks-wife");
+            dataMap.put("filed3","tom-hanks-beautiful-wife");
+            UpdateRequest updateRequest = new UpdateRequest(indexName,"doc", dataMap.remove("id").toString());
+            updateRequest.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+            updateRequest.doc(dataMap) ;
+            this.client.update(updateRequest, options);
+            log.info("success");
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+
+
+    }
+
     @Test
     public void delData(){
         try {
-            String indexName = "test_index";
-
             DeleteRequest deleteRequest = new DeleteRequest(indexName,"doc", "1");
             this.client.delete(deleteRequest, options);
         } catch (Exception e){
