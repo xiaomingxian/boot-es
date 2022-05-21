@@ -24,7 +24,7 @@ import java.util.Map;
 @SpringBootTest(classes = Application.class)
 @RunWith(SpringRunner.class)
 @Slf4j
-public class EsIndexOperateTest {
+public class T1_EsIndexOperateTest {
 
     @Autowired
     private RestHighLevelClient client;

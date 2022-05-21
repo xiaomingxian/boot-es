@@ -7,12 +7,11 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.core.CountRequest;
-import org.elasticsearch.client.core.CountResponse;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.script.Script;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.sort.ScriptSortBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -24,15 +23,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * @author xianXiaoMing
- * @create 2022-05-15 19:17
- **/
 @Slf4j
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = Application.class)
-public class EsDataQueryTest {
-
+public class T4_EsDateSortQueryTest {
     @Autowired
     private RestHighLevelClient client;
 
@@ -40,39 +34,45 @@ public class EsDataQueryTest {
 
     private static final String indexName = "test_index";
 
-
-    /**
-     * 数量查询
-     */
     @Test
-    public void totalCount(){
-        // 指定创建时间
-        BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
-        queryBuilder.must(QueryBuilders.termQuery("name", "tom"));
+    public void simpleSort(){
 
+        // 先升序时间，在倒序年龄
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        sourceBuilder.query(queryBuilder);
-
-        CountRequest countRequest = new CountRequest(indexName);
-        countRequest.source(sourceBuilder);
+        sourceBuilder.sort("name", SortOrder.ASC);
+        sourceBuilder.sort("age",SortOrder.DESC) ;
+        SearchRequest searchRequest = new SearchRequest(indexName);
+        searchRequest.source(sourceBuilder);
         try {
-            CountResponse countResponse = client.count(countRequest, options);
-            log.info("res:{}", JSONUtil.toJsonStr(countResponse));
+            SearchResponse searchResp = client.search(searchRequest, options);
+            List<Map<String,Object>> data = new ArrayList<>() ;
+            SearchHit[] searchHitArr = searchResp.getHits().getHits();
+            for (SearchHit searchHit:searchHitArr){
+                Map<String,Object> temp = searchHit.getSourceAsMap();
+                temp.put("id",searchHit.getId()) ;
+                data.add(temp);
+            }
+            log.info("res:{}", JSONUtil.toJsonStr(data));
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-    /**
-     * 数据查询
-     */
+
+
+
     @Test
-    public  void  dataQuery(){
-        // 查询条件,指定时间并过滤指定字段值
+    public void selfSortRule(){
+        // 指定置换顺序的规则
+        //todo 没明白这个排序规则？三元运算符？
+        // [age 12-->60]\[age 19-->10]\[age 13-->30]\[age 18-->40],age其他值忽略为1
+        Script script = new Script("def _ageSort = doc['age'].value == 12?60:" +
+                "(doc['age'].value == 19?10:" +
+                "(doc['age'].value == 13?30:" +
+                "(doc['age'].value == 18?40:1)));" + "_ageSort;");
+        ScriptSortBuilder sortBuilder = SortBuilders.scriptSort(script,ScriptSortBuilder.ScriptSortType.NUMBER);
+        sortBuilder.order(SortOrder.ASC);
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
-        queryBuilder.must(QueryBuilders.termQuery("name", "tom"));
-        queryBuilder.mustNot(QueryBuilders.termQuery("age",5));
-        sourceBuilder.query(queryBuilder);
+        sourceBuilder.sort(sortBuilder);
         SearchRequest searchRequest = new SearchRequest(indexName);
         searchRequest.source(sourceBuilder);
         try {
@@ -88,40 +88,8 @@ public class EsDataQueryTest {
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-    /**
-     * 分页查询
-     */
-    @Test
-    public void pageQuery(){
-        // 查询条件,指定时间并过滤指定字段值
-        //在使用 ElasticSearch 的时候，如果索引中的字段是 text 类型，针对该字段聚合、排序和查询的时候常会出现 Fielddata is disabled on text fields by default. Set fielddata=true 的错误
-        Integer offset=0;
-        Integer size=20;
-        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        sourceBuilder.from(offset);
-        sourceBuilder.size(size);
-        sourceBuilder.sort("age", SortOrder.DESC);
-        SearchRequest searchRequest = new SearchRequest(indexName);
-        searchRequest.source(sourceBuilder);
-        try {
-            SearchResponse searchResp = client.search(searchRequest, options);
-            List<Map<String,Object>> data = new ArrayList<>() ;
-            SearchHit[] searchHitArr = searchResp.getHits().getHits();
-            for (SearchHit searchHit:searchHitArr){
-                Map<String,Object> temp = searchHit.getSourceAsMap();
-                temp.put("id",searchHit.getId()) ;
-                data.add(temp);
-            }
-            log.info("res:{}",data);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+
 
 
     }
-
-
-
-
 }

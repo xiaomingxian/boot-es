@@ -25,7 +25,7 @@ import java.util.*;
 @SpringBootTest(classes = Application.class)
 @RunWith(SpringRunner.class)
 @Slf4j
-public class EsDataOperateTest {
+public class T2_EsDataOperateTest {
 
     @Autowired
     private RestHighLevelClient client;
